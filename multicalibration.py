@@ -43,7 +43,7 @@ def get_model(d, r, eps):
 def train_model(model, D1, x_valid, y_valid):
     """Train the model (with Adam to avoid gradient problems)"""
     # TODO: optimize params!
-    n_epochs = 3
+    n_epochs = 1
     batch_size = 1
     lr = 0.1
     cb = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, 
@@ -97,7 +97,7 @@ def split_sets(model, D1, C, B, r):
         quantiles_list.append(quantiles_tmp)
         sets = new_sets
         set_ranges = new_ranges
-    print(set_ranges)
+
     set_counts = [len(i[0]) for i in sets]
     return sets, set_counts, set_ranges, quantiles_list
 
@@ -134,23 +134,17 @@ def get_sets(samples, r, model, quantiles_list, set_ranges=None):
                 ret.append(i)
                 break
             if i == len(set_ranges) - 1:
-                print("Couldn't place", feature, "within a set")
-                raise ValueError
+                raise ValueError("Couldn't place", feature, "within a set")
     return ret
 
 
 def compute_D2(D2, r, model, quantiles_list, set_ranges=None):
     x, y = D2
-    print("len(set_ranges)", len(set_ranges))
-    print("B**r", B**r)
-    print("shape(x)", np.shape(x))
-
     D2_counts = np.zeros(B**r)
     D2_weights = np.zeros(B**r)
     s = get_sets(D2[0], r, model, quantiles_list, set_ranges)
-    print("s", s)
+
     for i in range(len(x)):
-        if i % 100 == 0: print(i)
         D2_counts[s[i]] += 1
         D2_weights[s[i]] += y[i]
     return D2_counts, D2_weights
@@ -166,7 +160,7 @@ def fhat(sample, r, model, quantiles_list, D2_weights, D2_counts):
 
 # Parameters
 C = 100
-n_train, n_valid, n_test = 10000, 100, 100
+n_train, n_valid, n_test = 32000, 100, 100
 eps = 0.01
 # B = round(n_train**(1./r + 1))
 r = 3
@@ -193,21 +187,24 @@ mse_fhat = np.square(np.subtract(fhat_test, y_test)).mean()
 print("NN MSE", mse_nn)
 print("FH MSE", mse_fhat)
     
-# Check for multicalibration
-fhat_vals = dict()
+# Check for multicalibration: store MC quantities as set_id-val in dict
+set_ids = get_sets(x_test, r, model, quantiles_list, set_ranges)
 y_sums = dict()
 fhat_sums = dict()
+fhat_vals = dict()
 for i in range(n_test):
     fx = fhat(x_test[i], r, model, quantiles_list, D2_weights, D2_counts)
-    if str(fx) not in fhat_vals:
-        fhat_vals[str(fx)] = 1
-        y_sums[str(fx)] = y_test[i]
-        fhat_sums[str(fx)] = fx
+    label = str(set_ids[i]) + "-" + str(fx)
+    if label not in fhat_vals:
+        fhat_vals[label] = 1
+        y_sums[label] = y_test[i]
+        fhat_sums[label] = fx
     else:
-        fhat_vals[str(fx)] = 1 + fhat_vals[str(fx)]
-        y_sums[str(fx)] = y_test[i] + y_sums[str(fx)]
-        fhat_sums[str(fx)] = fx + fhat_sums[str(fx)]
-
+        fhat_vals[label] = 1 + fhat_vals[label]
+        y_sums[label] = y_test[i] + y_sums[label]
+        fhat_sums[label] = fx + fhat_sums[label]
+mc = {key: abs(y_sums[key]-fhat_vals[key]) / fhat_vals[key] for key in fhat_vals}
+print(mc)
 
 """ Run some basic checks...
 # Test get_data()
