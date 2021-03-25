@@ -1,18 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-
-
-# Parameters
-r = 2
-d = 5
-C = 100
-n_train, n_valid, n_test = 50, 100, 100
-eps = 0.01
-batch_size = 32
-steps_per_epoch = n_train / batch_size
-n_epochs = 5
-B = round(n_train**(1./r + 1))
+np.set_printoptions(suppress=True)
 
 
 def get_data(r, d, C, n_train, n_valid, n_test, test=False):
@@ -78,10 +67,14 @@ def split_sets(model, D1, C, B, r):
     quantiles_B = np.linspace(0, 1, B + 1)
     sets = [D1]
     quantiles_list = []
+    set_ranges = np.empty((1, r, 2))
+    set_ranges[0, :, 0] = -C
+    set_ranges[0, :, 1] = C
     
     for j in range(r):
         new_sets = []
         quantiles_tmp = []
+        new_ranges = np.tile(set_ranges, (B, 1, 1))
         for i in range(len(sets)):
             features = model.predict(sets[i][0])[:, j]
             quantiles = [-C] + list(np.quantile(features, quantiles_B[1:-1])) + [C]
@@ -98,50 +91,122 @@ def split_sets(model, D1, C, B, r):
                     assert(k != B - 1)
 
             for k in range(B):
+                new_ranges[k * B**j + i, j] = [quantiles[k], quantiles[k + 1]]
                 new_sets.append((np.array(sets_tmp[k]), np.array(sets_tmp_y[k])))
 
         quantiles_list.append(quantiles_tmp)
         sets = new_sets
-
+        set_ranges = new_ranges
+    print(set_ranges)
     set_counts = [len(i[0]) for i in sets]
-    return sets, set_counts, quantiles_list
+    return sets, set_counts, set_ranges, quantiles_list
 
 
-def get_set(sample, r, model, quantiles_list):
+def get_set(sample, r, model, quantiles_list, set_ranges=None):
     """Determine which set a sample is in"""
     model = keras.Model(inputs=model.input, outputs=model.get_layer('dense').output)
     features = model.predict(np.reshape(sample, (1, -1)))
 
-    indices = []
-    for j in range(r):
-        for i in range(B):
-            if features[0][j] >= quantiles_list[j][0][i] and features[0][j] <= quantiles_list[j][0][i + 1]:
-                indices.append(i)
+    for i in range(len(set_ranges)):
+        flag = True
+        for j in range(len(features[0])):
+            if not(features[0][j] >= set_ranges[i][j][0] and features[0][j] <= set_ranges[i][j][1]):
+                flag = False
                 break
-        assert(len(indices) == j + 1)
-    ret = 0
-    for i in range(r):
-        ret += B**(r - i - 1) * indices[i]
+        if flag:
+            return i
+    raise ValueError
+
+
+def get_sets(samples, r, model, quantiles_list, set_ranges=None):
+    """Determine which set a sample is in"""
+    model = keras.Model(inputs=model.input, outputs=model.get_layer('dense').output)
+    features = model.predict(samples)
+    ret = []
+    for feature in features:
+        for i in range(len(set_ranges)):
+            flag = True
+            for j in range(len(feature)):
+                if not(feature[j] >= set_ranges[i][j][0] and feature[j] <= set_ranges[i][j][1]):
+                    flag = False
+                    break
+            if flag:
+                ret.append(i)
+                break
+            if i == len(set_ranges) - 1:
+                print("Couldn't place", feature, "within a set")
+                raise ValueError
     return ret
 
 
-def compute_D2(D2):
+def compute_D2(D2, r, model, quantiles_list, set_ranges=None):
     x, y = D2
+    print("len(set_ranges)", len(set_ranges))
+    print("B**r", B**r)
+    print("shape(x)", np.shape(x))
+
     D2_counts = np.zeros(B**r)
     D2_weights = np.zeros(B**r)
+    s = get_sets(D2[0], r, model, quantiles_list, set_ranges)
+    print("s", s)
     for i in range(len(x)):
-        s = get_set(x[i])
-        D2_counts[s] += 1
-        D2_weights[s] += y[i]
+        if i % 100 == 0: print(i)
+        D2_counts[s[i]] += 1
+        D2_weights[s[i]] += y[i]
     return D2_counts, D2_weights
 
 
-def fhat(sample, B, r):
+def fhat(sample, r, model, quantiles_list, D2_weights, D2_counts):
     """Construct fhat from D2 samples"""
-    set_num = get_set(sample)
-    weights = D2_weights[set_num][1]
+    set_num = get_set(sample, r, model, quantiles_list, set_ranges)
+    weights = D2_weights[set_num]
     counts = D2_counts[set_num]
-    return counts / size
+    return weights / counts
+
+
+# Parameters
+C = 100
+n_train, n_valid, n_test = 10000, 100, 100
+eps = 0.01
+# B = round(n_train**(1./r + 1))
+r = 3
+d = 3
+B = 4
+D1, D2, x_valid, y_valid, x_test, y_test = get_data(r, d, C, n_train, n_valid, n_test, test=True)
+model = get_model(d, r, eps)
+mse = train_model(model, D1, x_valid, y_valid)
+sets, set_counts, set_ranges, quantiles_list = split_sets(model, (x_test, y_test), C, B, r)
+D2_counts, D2_weights = compute_D2(D2, r, model, quantiles_list, set_ranges)
+
+for i in range(len(D2_counts)):
+    if D2_counts[i] == 0:
+        print("D2_counts was 0 at i =", i, "with set_ranges[i]:")
+        print(set_ranges[i])
+        raise ValueError
+
+# Check the accuracy
+fhat_test = np.empty(n_test)
+for i in range(n_test):
+    fhat_test[i] = fhat(x_test[i], r, model, quantiles_list, D2_weights, D2_counts)
+mse_nn = model.evaluate(x=x_test, y=y_test)
+mse_fhat = np.square(np.subtract(fhat_test, y_test)).mean()
+print("NN MSE", mse_nn)
+print("FH MSE", mse_fhat)
+    
+# Check for multicalibration
+fhat_vals = dict()
+y_sums = dict()
+fhat_sums = dict()
+for i in range(n_test):
+    fx = fhat(x_test[i], r, model, quantiles_list, D2_weights, D2_counts)
+    if str(fx) not in fhat_vals:
+        fhat_vals[str(fx)] = 1
+        y_sums[str(fx)] = y_test[i]
+        fhat_sums[str(fx)] = fx
+    else:
+        fhat_vals[str(fx)] = 1 + fhat_vals[str(fx)]
+        y_sums[str(fx)] = y_test[i] + y_sums[str(fx)]
+        fhat_sums[str(fx)] = fx + fhat_sums[str(fx)]
 
 
 """ Run some basic checks...
