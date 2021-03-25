@@ -82,7 +82,6 @@ def split_sets(model, D1, C, B, r):
     for j in range(r):
         new_sets = []
         quantiles_tmp = []
-        #print("sets j =", j, " -> ", sets)
         for i in range(len(sets)):
             features = model.predict(sets[i][0])[:, j]
             quantiles = [-C] + list(np.quantile(features, quantiles_B[1:-1])) + [C]
@@ -115,9 +114,7 @@ def get_set(sample, r, model, quantiles_list):
 
     indices = []
     for j in range(r):
-        #print(features[0][j], quantiles_list[j][0])
         for i in range(B):
-            #print(features[0][j], quantiles_list[j][0][i], quantiles_list[j][0][i + 1])
             if features[0][j] >= quantiles_list[j][0][i] and features[0][j] <= quantiles_list[j][0][i + 1]:
                 indices.append(i)
                 break
@@ -128,16 +125,23 @@ def get_set(sample, r, model, quantiles_list):
     return ret
 
 
-def fhat(sample):
+def compute_D2(D2):
+    x, y = D2
+    D2_counts = np.zeros(B**r)
+    D2_weights = np.zeros(B**r)
+    for i in range(len(x)):
+        s = get_set(x[i])
+        D2_counts[s] += 1
+        D2_weights[s] += y[i]
+    return D2_counts, D2_weights
+
+
+def fhat(sample, B, r):
     """Construct fhat from D2 samples"""
     set_num = get_set(sample)
-    counts = np.sum(sets[set_num][1])
-    size = set_counts[set_num]
+    weights = D2_weights[set_num][1]
+    counts = D2_counts[set_num]
     return counts / size
-
-# # Finally, evaluate the predictor on the test data
-
-    
 
 
 """ Run some basic checks...
