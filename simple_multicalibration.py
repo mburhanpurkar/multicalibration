@@ -193,12 +193,12 @@ n_train, n_valid, n_test = 32000, 1000, 1000
 eps = 0.1
 # B = round(n_train**(1./r + 1))
 r = 1
-d = 3
-B = 4
+d = 5
+B = 50
 lr = 0.00001
 reg = 0.01
 n_epochs = 15
-D1, D2, x_valid, y_valid, x_test, y_test, W1_star = get_data(r, d, C, n_train, n_valid, n_test, eps, test=True)
+D1, D2, x_valid, y_valid, x_test, y_test, W1_star = get_data(r, d, C, n_train, n_valid, n_test, eps, test=False)
 x_train = D1[0]
 y_train = D1[1]
 w2, W1 = get_model(d, r, eps, lr, reg, n_epochs, x_train, y_train, x_valid, y_valid, n_train // 2, n_valid)
@@ -218,8 +218,32 @@ for i in range(n_test):
     fhat_test[i] = fhat(x_test[i], r, w2, W1, quantiles_list, D2_weights, D2_counts)
 mse_nn = np.square(predict(x_test, w2, W1, only_top=False) - y_test).mean()#model.evaluate(x=x_test, y=y_test)
 mse_fhat = np.square(np.subtract(fhat_test, y_test)).mean()
-print("SGD MSE", mse_nn)
-print("FHT MSE", mse_fhat)
+print("SGD MSE:", mse_nn)
+
+# Check the multicalibration on the SGD predictor
+set_ids = get_sets(x_test, r, w2, W1, quantiles_list, set_ranges)
+y_sums = dict()
+fhat_sums = dict()
+fhat_vals = dict()
+
+for i in range(n_test):
+    fx = w2 @ W1 @ x_test[i]  #fhat(x_test[i], r, w2, W1, quantiles_list, D2_weights, D2_counts)
+    label = str(set_ids[i]) + "-" + str(fx)
+
+    if label not in fhat_vals:
+        fhat_vals[label] = 1
+        y_sums[label] = y_test[i]
+        fhat_sums[label] = fx
+    else:
+        fhat_vals[label] = 1 + fhat_vals[label]
+        y_sums[label] = y_test[i] + y_sums[label]
+        fhat_sums[label] = fx + fhat_sums[label]
+mc = {key: abs(y_sums[key]-fhat_sums[key]) / fhat_vals[key] for key in fhat_vals}
+print("Average multicalibration error:", np.mean(list(mc.values())))
+print("Number of MC sets:", len(list(mc.values())))
+
+
+print("FHT MSE:", mse_fhat)
 
 # Check for multicalibration: store MC quantities as set_id-val in dict
 set_ids = get_sets(x_test, r, w2, W1, quantiles_list, set_ranges)
@@ -227,7 +251,7 @@ y_sums = dict()
 fhat_sums = dict()
 fhat_vals = dict()
 
-for i in range(n_test // 2):
+for i in range(n_test):
     fx = fhat(x_test[i], r, w2, W1, quantiles_list, D2_weights, D2_counts)
     label = str(set_ids[i]) + "-" + str(fx)
 
@@ -239,7 +263,7 @@ for i in range(n_test // 2):
         fhat_vals[label] = 1 + fhat_vals[label]
         y_sums[label] = y_test[i] + y_sums[label]
         fhat_sums[label] = fx + fhat_sums[label]
-mc = {key: abs(y_sums[key]-fhat_vals[key]) / fhat_vals[key] for key in fhat_vals}
-print(mc)
-
+mc = {key: abs(y_sums[key]-fhat_sums[key]) / fhat_vals[key] for key in fhat_vals}
+print("Average multicalibration error:", np.mean(list(mc.values())))
+print("Number of MC sets:", len(list(mc.values())))
 
