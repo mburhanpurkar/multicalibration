@@ -32,7 +32,7 @@ def get_model(d, r, eps, lr, reg, n_epochs, x_train, y_train,
        r: number of dimensions in the "second to last layer"
        eps: error added to true function in data
        lr: learning rate for gradient descent
-       reg: choice of lambda for L2 regularization (not yet implemented)
+       reg: choice of lambda for L2 regularization
        n_epochs: number of epochs to train for
     """
     assert(r == 1)
@@ -109,10 +109,8 @@ def split_sets(w2, W1, D1, C, B, r):
 
 def get_set(sample, r, w2, W1, quantiles_list, set_ranges=None):
     """Determine which set a sample is in"""
-    #model = keras.Model(inputs=model.input, outputs=model.get_layer('dense').output)
-    features = W1 @ sample#model.predict(np.reshape(sample, (1, -1)))
+    features = W1 @ sample
 
-    # features[0] -> features
     for i in range(len(set_ranges)):
         flag = True
         for j in range(len(features)):
@@ -216,18 +214,19 @@ for i in range(len(D2_counts)):
 fhat_test = np.empty(n_test)
 for i in range(n_test):
     fhat_test[i] = fhat(x_test[i], r, w2, W1, quantiles_list, D2_weights, D2_counts)
-mse_nn = np.square(predict(x_test, w2, W1, only_top=False) - y_test).mean()#model.evaluate(x=x_test, y=y_test)
+mse_nn = np.square(predict(x_test, w2, W1, only_top=False) - y_test).mean()
 mse_fhat = np.square(np.subtract(fhat_test, y_test)).mean()
 print("SGD MSE:", mse_nn)
 
-# Check the multicalibration on the SGD predictor
+# Check the multicalibration on the SGD predictor--should probably do some binning for this
+# to make more sense...
 set_ids = get_sets(x_test, r, w2, W1, quantiles_list, set_ranges)
 y_sums = dict()
 fhat_sums = dict()
 fhat_vals = dict()
 
 for i in range(n_test):
-    fx = w2 @ W1 @ x_test[i]  #fhat(x_test[i], r, w2, W1, quantiles_list, D2_weights, D2_counts)
+    fx = w2 @ W1 @ x_test[i]
     label = str(set_ids[i]) + "-" + str(fx)
 
     if label not in fhat_vals:
