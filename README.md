@@ -3,6 +3,8 @@
 ### Linjun's Method
 - `simple_multicalibration.py`: simple linear model with hand-implemented SGD for r = 1
 - `multicalibration.py`: linear model implemented with NN for any r, d
+- `Debugging the Code`: sanity checks on Linjun's method (locally)
+- `Linear Model Experiments`: sanity checks on Linjun's method (cluster)
 
 ### Hypothesis Validation
 - `Logistic Regression Comparison.ipynb`: comparison of logistic regression distributions, accuracies
