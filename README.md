@@ -1,8 +1,8 @@
 # multicalibration
 
 ### Linjun's Method
-- `simple_multicalibration.py`: simple linear model with hand-implemented SGD for r = 1
-- `multicalibration.py`: linear model implemented with NN for any r, d
+- `linear_model_r=1_multicalibration.py`: simple linear model with hand-implemented SGD for r = 1
+- `deprecated_nn_multicalibration.py`: should be fixed
 - `Debugging the Code`: sanity checks on Linjun's method (locally)
 - `Linear Model Experiments`: sanity checks on Linjun's method (cluster)
 
