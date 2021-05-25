@@ -99,7 +99,7 @@ filepath = os.path.join(save_dir, model_name)
 checkpoint = ModelCheckpoint(filepath=filepath,
                              monitor='val_mse',
                              verbose=1,
-                             save_best_only=True)
+                             save_best_only=False)
 
 lr_scheduler = LearningRateScheduler(resnet.lr_schedule)
 
@@ -169,6 +169,9 @@ class AdditionalValidationSets(Callback):
                 self.history.setdefault(valuename, []).append(result)
                 if self.verbose:
                     print(valuename + ": " + str(result))
+        with open(save_dir + "/" + model_type  + "/history" + '.pkl', 'wb') as f:
+            pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
+
 validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
 
 
@@ -235,7 +238,7 @@ for file in files:
     if version == 1:
         model = resnet.resnet_v1(input_shape=input_shape, depth=depth)
     else:
-        model = resnet.resnet_v1(input_shape=input_shape, depth=depth)
+        model = resnet.resnet_v2(input_shape=input_shape, depth=depth)
 
     model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(lr=resnet.lr_schedule(0)),
@@ -287,8 +290,8 @@ for file in files:
     hists.append(history.history)
 
 
-with open(save_dir + "/" + model_type  + "/tuned_history" + '.pkl', 'wb') as f:
-    pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
+    with open(save_dir + "/" + model_type  + "/tuned_history" + '.pkl', 'wb') as f:
+        pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
 
 t2 = time.time()
 
