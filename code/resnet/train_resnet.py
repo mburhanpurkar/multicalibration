@@ -1,8 +1,10 @@
 import os
 import sys
+import time
 import math
 import glob
 import resnet
+import pickle
 import argparse
 import numpy as np
 import tensorflow as tf
@@ -109,10 +111,13 @@ lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
 
 class PlottingCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
+        print(logs)
         preds = self.model.predict(x_test)
+        plt.clf()
         plt.hist(preds[:, 0])
         plt.title("Test Set Distribution, Epoch " + str(epoch) + ", MSE " + str(round(logs['mse'], 2)) + ", VAL MSE " + str(round(logs['val_mse'], 2)))
         plt.savefig(save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch))       
+        plt.clf()
 plotting_callback = PlottingCallback()
 
 
@@ -185,6 +190,8 @@ datagen = ImageDataGenerator(
 
 datagen.fit(x_train)
 
+t1 = time.time()
+
 steps_per_epoch =  math.ceil(len(x_train) / batch_size)
 model.fit(x=datagen.flow(x_train, y_train, batch_size=batch_size),
           verbose=1,
@@ -193,9 +200,11 @@ model.fit(x=datagen.flow(x_train, y_train, batch_size=batch_size),
           steps_per_epoch=steps_per_epoch,
           callbacks=callbacks)
 
+t2 = time.time()
+print("*******Train time" + str((t2 - t1)/60.))
 
-with open(save_dir + "/" + model_type  + "_history" + '.pkl', 'wb') as f:
-    pickle.dump(validation_sets, f, pickle.HIGHEST_PROTOCOL)
+with open(save_dir + "/" + model_type  + "/history" + '.pkl', 'wb') as f:
+    pickle.dump(validation_sets.history, f, pickle.HIGHEST_PROTOCOL)
 
 
 # score trained model
@@ -214,6 +223,8 @@ print('Test accuracy:', scores[1])
 files = sorted(glob.glob("saved_models/cifar10_%s_model.*.h5" % model_type))
 epochs = []
 hists = []
+
+t1 = time.time()
 
 for file in files:
     # Save the epoch
@@ -260,10 +271,12 @@ for file in files:
 
     class PlottingCallback(Callback):
         def on_epoch_end(self, epoch, logs=None):
+            plt.clf()
             preds = self.model.predict(x_test)
             plt.hist(preds[:, 0])
             plt.title("Fine Tuning Epoch: " + str(epoch + 1) + ", Test MSE: " + str(round(model.evaluate(x_test, y_test_old)[-1], 2)))
-            plt.savefig("saved_models/" + model_type + "/tune_dist_" + str(epoch))
+            plt.savefig("saved_models/" + model_type + "/tune_dist_" + str(epochs[-1]) + "_" + str(epoch))
+            plt.clf()
         
     plotting_callback = PlottingCallback()
     history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
@@ -271,12 +284,15 @@ for file in files:
     hist = new.fit(x=x_train, y=y_train_old, epochs=8, batch_size=batch_size, 
                   validation_data=(x_test, y_test_old), 
                   callbacks=[lr_scheduler_inner, history, plotting_callback])
-    hists.append(history)
+    hists.append(history.history)
 
 
-with open(save_dir + "/" + model_type  + "_tuned_history" + '.pkl', 'wb') as f:
+with open(save_dir + "/" + model_type  + "/tuned_history" + '.pkl', 'wb') as f:
     pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
 
+t2 = time.time()
+
+print("*******Train time" + str((t2 - t1)/60.))
 
 sys.stdout = old_stdout
 log_file.close()
