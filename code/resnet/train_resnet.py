@@ -96,7 +96,7 @@ if not os.path.isdir(save_dir):
     os.makedirs(save_dir)
 filepath = os.path.join(save_dir, model_name)
 
-checkpoint = ModelCheckpoint(filepath=filepath,
+checkpoint = ModelCheckpoint(filepath=save_dir + "/" + model_type + "/" + model_name,
                              monitor='val_mse',
                              verbose=1,
                              save_best_only=False)
@@ -223,7 +223,8 @@ print('Test accuracy:', scores[1])
 #####################################################################################################################################
 
 
-files = sorted(glob.glob("saved_models/cifar10_%s_model.*.h5" % model_type))
+files = sorted(glob.glob(save_dir + "/" + model_type +  "/cifar10_%s_model.*.h5" % model_type))
+#files = sorted(glob.glob("saved_models/cifar10_%s_model.*.h5" % model_type))
 epochs = []
 hists = []
 

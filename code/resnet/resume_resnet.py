@@ -41,7 +41,7 @@ elif version == 2:
     depth = n * 9 + 2
 
 model_type = 'ResNet%dv%d_%d_data%d' % (depth, version, identifier, data)
-save_dir = os.path.join(os.getcwd(), 'saved_models_new')
+save_dir = os.path.join(os.getcwd(), 'saved_models')
 
 old_stdout = sys.stdout
 log_file = open(save_dir + "/" + model_type + "/log.txt", "a")
@@ -291,14 +291,16 @@ for file in files:
             plt.clf()
             preds = self.model.predict(x_test)
             plt.hist(preds[:, 0])
-            plt.title("Fine Tuning Epoch: " + str(epoch + 1) + ", Test MSE: " + str(round(model.evaluate(x_test, y_test_old)[-1], 2)))
+            plt.title("Fine Tuning Epoch: " + str(epoch + 1) + ", Test MSE: " + str(round(self.model.evaluate(x_test, y_test_old)[-1], 2)))
             plt.savefig(save_dir + "/" + model_type + "/tune_dist_" + str(epochs[-1]) + "_" + str(epoch))
             plt.clf()
         
     plotting_callback = PlottingCallback()
     history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
 
-    hist = new.fit(x=x_train, y=y_train_old, epochs=8, batch_size=batch_size, 
+    hist = new.fit(datagen.flow(x_train, y_train_old, batch_size=batch_size), 
+                   epochs=8, 
+                   batch_size=batch_size, 
                   validation_data=(x_test, y_test_old), 
                   callbacks=[lr_scheduler_inner, history, plotting_callback])
     hists.append(history.history)

@@ -26,16 +26,16 @@ def lr_schedule(epoch):
         lr (float32): learning rate
     """
     lr = 1e-3 / 5
-    if epoch > 90:
-        lr *= 5e-4
-    elif epoch > 80:
-        lr *= 1e-3
-    elif epoch > 70:
+    if epoch > 70:
         lr *= 1e-2
     elif epoch > 60:
-        lr *= 5e-2
+        lr /= 10
     elif epoch > 50:
-        lr *= 1e-1
+        lr /= 8
+    elif epoch > 40:
+        lr /= 4
+    elif epoch > 30:
+        lr /= 2
     print('Learning rate: ', lr)
     return lr
 
