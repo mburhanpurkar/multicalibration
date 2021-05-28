@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 import time
@@ -85,142 +86,142 @@ files = sorted(files)
 checkpoint = files[-1]
 checkpoint_epoch = int(checkpoint[-5:-3])
 
-print(files)
-print("Latest checkpoint path", checkpoint)
+if checkpoint_epoch < epochs:
+    print("Latest checkpoint path", checkpoint)
 
-model.load_weights(checkpoint)
+    model.load_weights(checkpoint)
 
-print("Model:", model_type)
+    print("Model:", model_type)
 
-model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
-if not os.path.isdir(save_dir):
-    os.makedirs(save_dir)
-filepath = os.path.join(save_dir, model_name)
+    model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+    filepath = os.path.join(save_dir, model_name)
 
-checkpoint = ModelCheckpoint(filepath=filepath,
-                             verbose=1,
-                             save_freq=steps_per_epoch)
+    checkpoint = ModelCheckpoint(filepath=filepath,
+                                 verbose=1,
+                                 save_freq=steps_per_epoch)
 
-lr_scheduler = LearningRateScheduler(resnet.lr_schedule)
+    lr_scheduler = LearningRateScheduler(resnet.lr_schedule)
 
-lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
-                               cooldown=0,
-                               patience=5,
-                               min_lr=0.5e-6)
+    lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
+                                   cooldown=0,
+                                   patience=5,
+                                   min_lr=0.5e-6)
 
-class PlottingCallback(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        print(logs)
-        preds = self.model.predict(x_test)
-        plt.clf()
-        plt.hist(preds[:, 0])
-        plt.title("Test Set Distribution, Epoch " + str(epoch) + ", MSE " + str(round(logs['mse'], 2)) + ", VAL MSE " + str(round(logs['val_mse'], 2)))
-        plt.savefig(save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch))       
-        print("Saving dist to " + save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch) + ".png")
-        plt.clf()
-plotting_callback = PlottingCallback()
-
-
-class AdditionalValidationSets(Callback):
-    def __init__(self, validation_sets, verbose=0, batch_size=None):
-        """
-        From https://stackoverflow.com/questions/47731935/using-multiple-validation-sets-with-keras
-        """
-        super(AdditionalValidationSets, self).__init__()
-        self.validation_sets = validation_sets
-        for validation_set in self.validation_sets:
-            if len(validation_set) not in [3, 4]:
-                raise ValueError()
-        self.epoch = []
-        self.history = {}
-        self.verbose = verbose
-        self.batch_size = batch_size
-
-    def on_train_begin(self, logs=None):
-        self.epoch = []
-        self.history = {}
-
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        self.epoch.append(epoch)
-
-        # record the same values as History() as well
-        for k, v in logs.items():
-            self.history.setdefault(k, []).append(v)
-
-        # evaluate on the additional validation sets
-        for validation_set in self.validation_sets:
-            if len(validation_set) == 3:
-                validation_data, validation_targets, validation_set_name = validation_set
-                sample_weights = None
-            elif len(validation_set) == 4:
-                validation_data, validation_targets, sample_weights, validation_set_name = validation_set
-            else:
-                raise ValueError()
-
-            results = self.model.evaluate(x=validation_data,
-                                          y=validation_targets,
-                                          verbose=self.verbose,
-                                          sample_weight=sample_weights,
-                                          batch_size=self.batch_size)
-
-            for metric, result in zip(self.model.metrics_names,results):
-                valuename = validation_set_name + '_' + metric
-                self.history.setdefault(valuename, []).append(result)
-                if self.verbose:
-                    print(valuename + ": " + str(result))
-        
-        # Write out
-        with open(save_dir + "/" + model_type  + "/history_resumed" + '.pkl', 'wb') as f:
-            pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
-
-validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
+    class PlottingCallback(Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            print(logs)
+            preds = self.model.predict(x_test)
+            plt.clf()
+            plt.hist(preds[:, 0])
+            plt.title("Test Set Distribution, Epoch " + str(epoch) + ", MSE " + str(round(logs['mse'], 2)) + ", VAL MSE " + str(round(logs['val_mse'], 2)))
+            plt.savefig(save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch))       
+            print("Saving dist to " + save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch) + ".png")
+            plt.clf()
+    plotting_callback = PlottingCallback()
 
 
-callbacks = [checkpoint, lr_reducer, lr_scheduler, plotting_callback, validation_sets]
+    class AdditionalValidationSets(Callback):
+        def __init__(self, validation_sets, verbose=0, batch_size=None):
+            """
+            From https://stackoverflow.com/questions/47731935/using-multiple-validation-sets-with-keras
+            """
+            super(AdditionalValidationSets, self).__init__()
+            self.validation_sets = validation_sets
+            for validation_set in self.validation_sets:
+                if len(validation_set) not in [3, 4]:
+                    raise ValueError()
+            self.epoch = []
+            self.history = {}
+            self.verbose = verbose
+            self.batch_size = batch_size
 
-print('Using real-time data augmentation.')
-# this will do preprocessing and realtime data augmentation:
-datagen = ImageDataGenerator(
-    featurewise_center=False,
-    samplewise_center=False,
-    featurewise_std_normalization=False,
-    samplewise_std_normalization=False,
-    zca_whitening=False,
-    rotation_range=0,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    horizontal_flip=True,
-    vertical_flip=False)
+        def on_train_begin(self, logs=None):
+            self.epoch = []
+            self.history = {}
 
-datagen.fit(x_train)
+        def on_epoch_end(self, epoch, logs=None):
+            logs = logs or {}
+            self.epoch.append(epoch)
 
-t1 = time.time()
+            # record the same values as History() as well
+            for k, v in logs.items():
+                self.history.setdefault(k, []).append(v)
 
-print("Resuming training from epoch", checkpoint_epoch, "until epoch", epochs)
+            # evaluate on the additional validation sets
+            for validation_set in self.validation_sets:
+                if len(validation_set) == 3:
+                    validation_data, validation_targets, validation_set_name = validation_set
+                    sample_weights = None
+                elif len(validation_set) == 4:
+                    validation_data, validation_targets, sample_weights, validation_set_name = validation_set
+                else:
+                    raise ValueError()
 
-model.fit(x=datagen.flow(x_train, y_train, batch_size=batch_size),
-          verbose=1,
-          epochs=epochs,
-          initial_epoch=checkpoint_epoch,
-          validation_data=(x_test, y_test),
-          steps_per_epoch=steps_per_epoch,
-          callbacks=callbacks)
+                results = self.model.evaluate(x=validation_data,
+                                              y=validation_targets,
+                                              verbose=self.verbose,
+                                              sample_weight=sample_weights,
+                                              batch_size=self.batch_size)
 
-t2 = time.time()
-print("*******Train time" + str((t2 - t1)/60.))
+                for metric, result in zip(self.model.metrics_names,results):
+                    valuename = validation_set_name + '_' + metric
+                    self.history.setdefault(valuename, []).append(result)
+                    if self.verbose:
+                        print(valuename + ": " + str(result))
 
-with open(save_dir + "/" + model_type  + "/history_resumed" + '.pkl', 'wb') as f:
-    pickle.dump(validation_sets.history, f, pickle.HIGHEST_PROTOCOL)
+            # Write out
+            with open(save_dir + "/" + model_type  + "/history_resumed" + '.pkl', 'wb') as f:
+                pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
+
+    validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
 
 
-# score trained model
-scores = model.evaluate(x_test,
-                        y_test,
-                        batch_size=batch_size,
-                        verbose=0)
-print('Test loss:', scores[0])
-print('Test accuracy:', scores[1])
+    callbacks = [checkpoint, lr_reducer, lr_scheduler, plotting_callback, validation_sets]
+
+    print('Using real-time data augmentation.')
+    # this will do preprocessing and realtime data augmentation:
+    datagen = ImageDataGenerator(
+        featurewise_center=False,
+        samplewise_center=False,
+        featurewise_std_normalization=False,
+        samplewise_std_normalization=False,
+        zca_whitening=False,
+        rotation_range=0,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        horizontal_flip=True,
+        vertical_flip=False)
+
+    datagen.fit(x_train)
+
+    t1 = time.time()
+
+    print("Resuming training from epoch", checkpoint_epoch, "until epoch", epochs)
+
+    model.fit(x=datagen.flow(x_train, y_train, batch_size=batch_size),
+              verbose=1,
+              epochs=epochs,
+              initial_epoch=checkpoint_epoch,
+              validation_data=(x_test, y_test),
+              steps_per_epoch=steps_per_epoch,
+              callbacks=callbacks)
+
+    t2 = time.time()
+    print("*******Train time" + str((t2 - t1)/60.))
+
+    with open(save_dir + "/" + model_type  + "/history_resumed" + '.pkl', 'wb') as f:
+        pickle.dump(validation_sets.history, f, pickle.HIGHEST_PROTOCOL)
+
+
+    # score trained model
+    scores = model.evaluate(x_test,
+                            y_test,
+                            batch_size=batch_size,
+                            verbose=0)
+    print('Test loss:', scores[0])
+    print('Test accuracy:', scores[1])
 
 
 #####################################################################################################################################
@@ -237,8 +238,9 @@ if os.path.isfile(save_dir + "/" + model_type  + "/tuned_history.pkl"):
     exists = True
     
     # Get the epoch # to resume from
-    plots = stored(glob.glob((save_dir + "/" + model_type + "/tune_dist_*.png")))
+    plots = sorted(glob.glob((save_dir + "/" + model_type + "/tune_dist_[0-1000]_[0-1000].png")))
     regex = re.compile(r'*\d+')
+    print(plots)
     resume_epoch = int(regex.findall(plots[-1])[0])
 
 t1 = time.time()
