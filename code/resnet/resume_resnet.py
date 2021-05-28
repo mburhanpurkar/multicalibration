@@ -47,21 +47,12 @@ old_stdout = sys.stdout
 log_file = open(save_dir + "/" + model_type + "/log.txt", "a")
 sys.stdout = log_file
 
-if data == 0:
-    x_train = np.load('data/x_train.npy')
-    x_test = np.load('data/x_test.npy')
-    y_train = np.load('data/y_train.npy')
-    y_test = np.load('data/y_test.npy')
-    y_train_old = np.load('data/y_train_old.npy')
-    y_test_old = np.load('data/y_test_old.npy')
-else:
-    x_train = np.load('data_preprocessed/x_train.npy')
-    x_test = np.load('data_preprocessed/x_test.npy')
-    y_train = np.load('data_preprocessed/y_train.npy')
-    y_test = np.load('data_preprocessed/y_test.npy')
-    y_train_old = np.load('data_preprocessed/y_train_old.npy')
-    y_test_old = np.load('data_preprocessed/y_test_old.npy')
-
+x_train = np.load('data/x_train.npy')
+x_test = np.load('data/x_test.npy')
+y_train = np.load('data/y_train.npy')
+y_test = np.load('data/y_test.npy')
+y_train_old = np.load('data/y_train_old.npy')
+y_test_old = np.load('data/y_test_old.npy')
 
 input_shape = x_train.shape[1:]
 steps_per_epoch =  math.ceil(len(x_train) / batch_size)
@@ -236,14 +227,23 @@ print('Test accuracy:', scores[1])
 #####################################################################################################################################
 
 
-# files = sorted(glob.glob(save_dir + "/cifar10_%s_model.*.h5" % model_type))
 files = sorted(glob.glob(save_dir + "/" + model_type +  "/cifar10_%s_model.*.h5" % model_type))
 epochs = []
 hists = []
+exists = False
+
+# Check if a tuning file already exists...
+if os.path.isfile(save_dir + "/" + model_type  + "/tuned_history.pkl"):
+    exists = True
+    
+    # Get the epoch # to resume from
+    plots = stored(glob.glob((save_dir + "/" + model_type + "/tune_dist_*.png")))
+    regex = re.compile(r'*\d+')
+    resume_epoch = int(regex.findall(plots[-1])[0])
 
 t1 = time.time()
 
-for file in files:
+for file in files[resume_epoch:]:
     # Save the epoch
     epoch = int(file[-5:-3])
     epochs.append(epoch)
@@ -305,9 +305,12 @@ for file in files:
                   callbacks=[lr_scheduler_inner, history, plotting_callback])
     hists.append(history.history)
 
-
-    with open(save_dir + "/" + model_type  + "/tuned_history" + '.pkl', 'wb') as f:
-        pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
+    if exists:
+        with open(save_dir + "/" + model_type  + "/tuned_history_resumed" + '.pkl', 'wb') as f:
+            pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
+    else:
+        with open(save_dir + "/" + model_type  + "/tuned_history" + '.pkl', 'wb') as f:
+            pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
 
 t2 = time.time()
 
