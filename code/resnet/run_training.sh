@@ -1,14 +1,16 @@
 #!/bin/bash
 
-#SBATCH -J sanity_check
+#SBATCH -J flipped
 #SBATCH -n 2                # Number of cores
-#SBATCH -t 0-8:00           # Runtime in D-HH:MM
+#SBATCH -t 0-20:00           # Runtime in D-HH:MM
 #SBATCH -p shared           # Partition to submit to
 #SBATCH --mem=10G
 #SBATCH --account=dwork_lab
-#SBATCH --output=v1
+#SBATCH --output=flipped
 #SBATCH --mail-user=maya.burhanpurkar@gmail.com
 #SBATCH --mail-type=ALL
+
+# 8 hours, 10G, n=2
 
 module purge
 module load Anaconda3/2019.10
@@ -30,7 +32,10 @@ source activate tf_mult
 # ResNet1001| (111)| -----     | 92.39     | -----     | 95.08+-.14| ---(---)
 # ---------------------------------------------------------------------------
 
-# python train_resnet.py --version=1 --n=3 --id=${SLURM_ARRAY_TASK_ID} --data=0 --epochs=75
-python sanity_check_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=75
+
+# python resume_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=76 --tuning_epoch=30
+# python resume_resnet.py --version=1 --n=3 --id=${SLURM_ARRAY_TASK_ID} --data=0 --epochs=76 --tuning_epoch=30
+# python sanity_check_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=75
+python resume_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=75 --tuning_epoch=0
 
 conda deactivate

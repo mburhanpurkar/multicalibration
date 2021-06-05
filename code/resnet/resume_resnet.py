@@ -25,6 +25,7 @@ parser.add_argument('--version', default=1)
 parser.add_argument('--n', default=3)
 parser.add_argument('--id', default=0)
 parser.add_argument('--data', default=0)
+parser.add_argument('--tuning_epoch', default=0)
 args = vars(parser.parse_args())
 
 batch_size = int(args['batch_size'])
@@ -33,6 +34,7 @@ version = int(args['version'])
 n = int(args['n'])
 identifier = int(args['id'])
 data = int(args['data'])
+tuning_epoch = int(args['tuning_epoch'])
 
 num_classes = 2
 
@@ -41,7 +43,7 @@ if version == 1:
 elif version == 2:
     depth = n * 9 + 2
 
-model_type = 'ResNet%dv%d_%d_data%d' % (depth, version, identifier, data)
+model_type = 'ResNet%dv%d_%d_data%d_flipped' % (depth, version, identifier, data)
 save_dir = os.path.join(os.getcwd(), 'saved_models')
 
 old_stdout = sys.stdout
@@ -54,6 +56,24 @@ y_train = np.load('data/y_train.npy')
 y_test = np.load('data/y_test.npy')
 y_train_old = np.load('data/y_train_old.npy')
 y_test_old = np.load('data/y_test_old.npy')
+
+datagen = ImageDataGenerator(
+    featurewise_center=False,
+    samplewise_center=False,
+    featurewise_std_normalization=False,
+    samplewise_std_normalization=False,
+    zca_whitening=False,
+    rotation_range=0,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True,
+    vertical_flip=False)
+
+datagen.fit(x_train)
+
+
+y_train_old = 1 - y_train_old
+y_test_old = 1 - y_test_old
 
 input_shape = x_train.shape[1:]
 steps_per_epoch =  math.ceil(len(x_train) / batch_size)
@@ -182,20 +202,6 @@ if checkpoint_epoch < epochs:
 
     print('Using real-time data augmentation.')
     # this will do preprocessing and realtime data augmentation:
-    datagen = ImageDataGenerator(
-        featurewise_center=False,
-        samplewise_center=False,
-        featurewise_std_normalization=False,
-        samplewise_std_normalization=False,
-        zca_whitening=False,
-        rotation_range=0,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        horizontal_flip=True,
-        vertical_flip=False)
-
-    datagen.fit(x_train)
-
     t1 = time.time()
 
     print("Resuming training from epoch", checkpoint_epoch, "until epoch", epochs)
@@ -231,21 +237,14 @@ if checkpoint_epoch < epochs:
 files = sorted(glob.glob(save_dir + "/" + model_type +  "/cifar10_%s_model.*.h5" % model_type))
 epochs = []
 hists = []
-exists = False
-
-# Check if a tuning file already exists...
-if os.path.isfile(save_dir + "/" + model_type  + "/tuned_history.pkl"):
-    exists = True
-    
-    # Get the epoch # to resume from
-    plots = sorted(glob.glob((save_dir + "/" + model_type + "/tune_dist_[0-1000]_[0-1000].png")))
-    regex = re.compile(r'*\d+')
-    print(plots)
-    resume_epoch = int(regex.findall(plots[-1])[0])
 
 t1 = time.time()
 
-for file in files[resume_epoch:]:
+resume = False
+if tuning_epoch != 0:
+    resume = True
+
+for file in files[tuning_epoch:]:
     # Save the epoch
     epoch = int(file[-5:-3])
     epochs.append(epoch)
@@ -298,8 +297,56 @@ for file in files[resume_epoch:]:
             plt.clf()
         
     plotting_callback = PlottingCallback()
-    history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
 
+    class AdditionalValidationSets(Callback):
+        def __init__(self, validation_sets, verbose=0, batch_size=None):
+            """
+            From https://stackoverflow.com/questions/47731935/using-multiple-validation-sets-with-keras
+            """
+            super(AdditionalValidationSets, self).__init__()
+            self.validation_sets = validation_sets
+            for validation_set in self.validation_sets:
+                if len(validation_set) not in [3, 4]:
+                    raise ValueError()
+            self.epoch = []
+            self.history = {}
+            self.verbose = verbose
+            self.batch_size = batch_size
+
+        def on_train_begin(self, logs=None):
+            self.epoch = []
+            self.history = {}
+
+        def on_epoch_end(self, epoch, logs=None):
+            logs = logs or {}
+            self.epoch.append(epoch)
+
+            # record the same values as History() as well
+            for k, v in logs.items():
+                self.history.setdefault(k, []).append(v)
+
+            # evaluate on the additional validation sets
+            for validation_set in self.validation_sets:
+                if len(validation_set) == 3:
+                    validation_data, validation_targets, validation_set_name = validation_set
+                    sample_weights = None
+                elif len(validation_set) == 4:
+                    validation_data, validation_targets, sample_weights, validation_set_name = validation_set
+                else:
+                    raise ValueError()
+
+                results = self.model.evaluate(x=validation_data,
+                                              y=validation_targets,
+                                              verbose=self.verbose,
+                                              sample_weight=sample_weights,
+                                              batch_size=self.batch_size)
+
+                for metric, result in zip(self.model.metrics_names,results):
+                    valuename = validation_set_name + '_' + metric
+                    self.history.setdefault(valuename, []).append(result)
+                    if self.verbose:
+                        print(valuename + ": " + str(result))
+    history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
     hist = new.fit(datagen.flow(x_train, y_train_old, batch_size=batch_size), 
                    epochs=8, 
                    batch_size=batch_size, 
@@ -307,7 +354,7 @@ for file in files[resume_epoch:]:
                   callbacks=[lr_scheduler_inner, history, plotting_callback])
     hists.append(history.history)
 
-    if exists:
+    if resume:
         with open(save_dir + "/" + model_type  + "/tuned_history_resumed" + '.pkl', 'wb') as f:
             pickle.dump(hists, f, pickle.HIGHEST_PROTOCOL)
     else:

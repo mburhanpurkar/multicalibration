@@ -40,7 +40,7 @@ if version == 1:
 elif version == 2:
     depth = n * 9 + 2
 
-model_type = 'ResNet%dv%d_%d_data%d' % (depth, version, identifier, data)
+model_type = 'ResNet%dv%d_%d_data%d_flipped' % (depth, version, identifier, data)
 save_dir = os.path.join(os.getcwd(), 'saved_models')
 os.mkdir('saved_models/' + model_type)
 
@@ -63,7 +63,8 @@ else:
     y_train_old = np.load('data_preprocessed/y_train_old.npy')
     y_test_old = np.load('data_preprocessed/y_test_old.npy')
 
-
+y_test_old = 1 - y_test_old
+y_train_old = 1 - y_train_old
 input_shape = x_train.shape[1:]
 
 if data == 0:
@@ -171,6 +172,7 @@ class AdditionalValidationSets(Callback):
                     print(valuename + ": " + str(result))
         with open(save_dir + "/" + model_type  + "/history" + '.pkl', 'wb') as f:
             pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
+
 
 validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
 
