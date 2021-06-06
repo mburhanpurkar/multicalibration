@@ -2,7 +2,7 @@
 
 #SBATCH -J data_gen
 #SBATCH -n 1                # Number of cores
-#SBATCH -t 0-00:20           # Runtime in D-HH:MM
+#SBATCH -t 0-00:05           # Runtime in D-HH:MM
 #SBATCH -p shared           # Partition to submit to
 #SBATCH --mem=1G
 #SBATCH --account=dwork_lab

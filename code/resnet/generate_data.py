@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 # NB: the p -> 1-p error has been fixed in the code below. This is NOT
@@ -11,7 +12,7 @@ os.mkdir('data_squared')
 
 (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
 y_train_old, y_test_old = y_train, y_test
-y_train_old, y_test_old = 1. / y_train.astype(float)**2,  1. / y_test.astype(float)**2
+y_train_old, y_test_old = (1. / (1 + y_train.astype(float)))**2,  (1. / (1 + y_test.astype(float)))**2
 
 y_train, y_test = np.random.binomial(1, y_train_old), np.random.binomial(1, y_test_old)
 y_train, y_test = tf.keras.utils.to_categorical(y_train, num_classes=2), tf.keras.utils.to_categorical(y_test, num_classes=2)
@@ -125,24 +126,6 @@ for i in range(10):
     labels_arr[i * n : (i + 1) * n] = [probs[k, 0, 0, 0] for k in range(len(probs))]
     for k in range(n):
         original_labels[i * n + k] = str(i) + "_" + str(hybrids[k])
-        
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp):
-        ax[i_disp, 0].imshow(images[i_disp] /255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_train[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_train[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n + i_disp])
-    plt.tight_layout()
-    plt.show()
-
     
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
@@ -164,9 +147,9 @@ samples_arr = np.concatenate((samples_arr, samples_arr_pure))
 original_labels = np.concatenate((original_labels, original_labels_pure))
 
 # Save
-np.save("data_hybrids_uniform/train_images.npy", images_arr)
-np.save("data_hybrids_uniform/train_probs.npy", categorical_labels_arr)
-np.save("data_hybrids_uniform/train_labels.npy", samples_arr)
+np.save("data_hybrids_uniform/x_train.npy", images_arr)
+np.save("data_hybrids_uniform/y_train_old.npy", categorical_labels_arr)
+np.save("data_hybrids_uniform/y_train.npy", samples_arr)
 np.save("data_hybrids_uniform/train_original_labels.npy", original_labels)
 
 n = 500
@@ -212,24 +195,6 @@ for i in range(10):
     for k in range(n):
         original_labels[i * n + k] = str(i) + "_" + str(hybrids[k])
         
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp): 
-        ax[i_disp, 0].imshow(images[i_disp] / 255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_test[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_test[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
@@ -250,9 +215,9 @@ samples_arr = np.concatenate((samples_arr, samples_arr_pure))
 original_labels = np.concatenate((original_labels, original_labels_pure))
 
 # Save
-np.save("data_hybrids_uniform/test_images.npy", images_arr)
-np.save("data_hybrids_uniform/test_probs.npy", categorical_labels_arr)
-np.save("data_hybrids_uniform/test_labels.npy", samples_arr)
+np.save("data_hybrids_uniform/x_test.npy", images_arr)
+np.save("data_hybrids_uniform/y_test_old.npy", categorical_labels_arr)
+np.save("data_hybrids_uniform/y_test.npy", samples_arr)
 np.save("data_hybrids_uniform/test_original_labels.npy", original_labels)
 
 n = 500
@@ -298,24 +263,6 @@ for i in range(10):
     for k in range(n):
         original_labels[i * n + k] = str(i) + "_" + str(hybrids[k])
         
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp):
-        ax[i_disp, 0].imshow(images[i_disp] /255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_train[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_train[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
@@ -336,9 +283,9 @@ samples_arr = np.concatenate((samples_arr, samples_arr_pure))
 original_labels = np.concatenate((original_labels, original_labels_pure))
 
 # Save
-np.save("data_hybrids_fixed/train_images.npy", images_arr)
-np.save("data_hybrids_fixed/train_probs.npy", categorical_labels_arr)
-np.save("data_hybrids_fixed/train_labels.npy", samples_arr)
+np.save("data_hybrids_fixed/x_train.npy", images_arr)
+np.save("data_hybrids_fixed/y_train_old.npy", categorical_labels_arr)
+np.save("data_hybrids_fixed/y_train.npy", samples_arr)
 np.save("data_hybrids_fixed/train_original_labels.npy", original_labels)
 
 n = 500
@@ -384,24 +331,6 @@ for i in range(10):
     for k in range(n):
         original_labels[i * n + k] = str(i) + "_" + str(hybrids[k])
         
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp): 
-        ax[i_disp, 0].imshow(images[i_disp] / 255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_test[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_test[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
@@ -422,7 +351,7 @@ samples_arr = np.concatenate((samples_arr, samples_arr_pure))
 original_labels = np.concatenate((original_labels, original_labels_pure))
 
 # Save
-np.save("data_hybrids_fixed/test_images.npy", images_arr)
-np.save("data_hybrids_fixed/test_probs.npy", categorical_labels_arr)
-np.save("data_hybrids_fixed/test_labels.npy", samples_arr)
+np.save("data_hybrids_fixed/x_test.npy", images_arr)
+np.save("data_hybrids_fixed/y_test_old.npy", categorical_labels_arr)
+np.save("data_hybrids_fixed/y_test.npy", samples_arr)
 np.save("data_hybrids_fixed/test_original_labels.npy", original_labels)
