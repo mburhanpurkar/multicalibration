@@ -380,7 +380,7 @@ for i in range(10):
     
     # Get the pure ones
     images_arr_pure[i * n_pure : (i + 1) * n_pure] = x_train[indices_1[:n_pure]]
-    labels_arr_pure[i * n_pure : (i + 1) * n_pure] = np.ones(n) * i / 10.
+    labels_arr_pure[i * n_pure : (i + 1) * n_pure] = np.ones(n_pure) * i / 10.
     original_labels_pure[i * n_pure : (i + 1) * n_pure] = [str(i) + "_1"] * n_pure
 
     # Remove the first n
@@ -408,24 +408,6 @@ for i in range(10):
     for k in range(n_hybrid):
         original_labels[i * n_hybrid + k] = str(i) + "_" + str(hybrids[k])
         
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp):
-        ax[i_disp, 0].imshow(images[i_disp] /255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_train[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_train[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n_hybrid + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
@@ -494,25 +476,7 @@ for i in range(10):
     labels_arr[i * n_hybrid : (i + 1) * n_hybrid] = [probs[k, 0, 0, 0] for k in range(len(probs))]
     for k in range(n_hybrid):
         original_labels[i * n_hybrid + k] = str(i) + "_" + str(hybrids[k])
-        
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp): 
-        ax[i_disp, 0].imshow(images[i_disp] / 255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_test[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_test[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n_hybrid + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
+            
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
@@ -561,7 +525,7 @@ for i in range(10):
     
     # Get the pure ones
     images_arr_pure[i * n_pure : (i + 1) * n_pure] = x_train[indices_1[:n_pure]]
-    labels_arr_pure[i * n_pure : (i + 1) * n_pure] = np.ones(n) * i / 10.
+    labels_arr_pure[i * n_pure : (i + 1) * n_pure] = np.ones(n_pure) * i / 10.
     original_labels_pure[i * n_pure : (i + 1) * n_pure] = [str(i) + "_1"] * n_pure
 
     # Remove the first n
@@ -589,24 +553,6 @@ for i in range(10):
     for k in range(n_hybrid):
         original_labels[i * n_hybrid + k] = str(i) + "_" + str(hybrids[k])
         
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp):
-        ax[i_disp, 0].imshow(images[i_disp] /255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_train[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_train[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n_hybrid + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
@@ -676,24 +622,6 @@ for i in range(10):
     for k in range(n_hybrid):
         original_labels[i * n_hybrid + k] = str(i) + "_" + str(hybrids[k])
         
-    # Display the images
-    fig, ax = plt.subplots(nrows=n_disp, ncols=3, figsize=(4*3, 4 * n_disp))
-    for i_disp in range(n_disp): 
-        ax[i_disp, 0].imshow(images[i_disp] / 255.)
-        ax[i_disp, 0].set_title(str(round(round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[i] + " " \
-                        + str(round(100 - round(lambdas[i_disp, 0, 0, 0], 3) * 100, 3)) + "% " + labels[(i + 1) % 10] + " (" + \
-                           str(round(100 * round(probs[i_disp, 0, 0, 0], 3), 3)) + "%)")
-        ax[i_disp, 1].imshow(x_test[indices_1[i_disp]])
-        ax[i_disp, 1].set_title(labels[i])
-        ax[i_disp, 2].imshow(x_test[indices_2[i_disp]])
-        ax[i_disp, 2].set_title(labels[(i + 1) % 10])
-        for j in range(3):
-            ax[i_disp, j].axis('off')
-        assert(probs[i_disp, 0, 0, 0] == labels_arr[i * n_hybrid + i_disp])
-    plt.tight_layout()
-    plt.show()
-
-    
 # Do sampling and converting to one-hot
 samples_arr = np.random.binomial(1, labels_arr)
 samples_arr = tf.keras.utils.to_categorical(samples_arr, num_classes=2)
