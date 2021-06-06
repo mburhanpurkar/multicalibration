@@ -99,7 +99,7 @@ lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
 
 
 class AdditionalValidationSets(Callback):
-    def __init__(self, validation_sets, verbose=0, batch_size=None):
+    def __init__(self, validation_sets, save=True, verbose=0, batch_size=None):
         """
         From https://stackoverflow.com/questions/47731935/using-multiple-validation-sets-with-keras
         """
@@ -112,6 +112,7 @@ class AdditionalValidationSets(Callback):
         self.history = {}
         self.verbose = verbose
         self.batch_size = batch_size
+        self.save = save
 
     def on_train_begin(self, logs=None):
         self.epoch = []
@@ -146,11 +147,12 @@ class AdditionalValidationSets(Callback):
                 self.history.setdefault(valuename, []).append(result)
                 if self.verbose:
                     print(valuename + ": " + str(result))
-        with open(save_dir + "/" + model_type  + "/history" + '.pkl', 'wb') as f:
-            pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
+        if self.save:
+            with open(save_dir + "/" + model_type  + "/history.pkl', 'wb') as f:
+                pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
 
 
-validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
+validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], save=True, verbose=1, batch_size=batch_size)
 
 
 callbacks = [checkpoint, lr_reducer, lr_scheduler, validation_sets]
@@ -243,9 +245,9 @@ for file in files:
         monitor='val_mean_squared_error', factor=0.1, patience=1, verbose=1,
         mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
 
-    history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
+    history = AdditionalValidationSets([(x_test, y_test, 'y')], save=False, verbose=1, batch_size=batch_size)
 
-    hist = new.fit(x=x_train, y=y_train_old, epochs=8, batch_size=batch_size, 
+    hist = new.fit(datagen.flow(x_train, y_train_old, batch_size=batch_size), epochs=8, batch_size=batch_size, 
                   validation_data=(x_test, y_test_old), 
                   callbacks=[lr_scheduler_inner, history])
     hists.append(history.history)
