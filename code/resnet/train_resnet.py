@@ -23,7 +23,7 @@ parser.add_argument('--epochs', default=200)
 parser.add_argument('--version', default=1)
 parser.add_argument('--n', default=3)
 parser.add_argument('--id', default=0)
-parser.add_argument('--data', default=0)
+parser.add_argument('--data', default='data')
 args = vars(parser.parse_args())
 
 batch_size = int(args['batch_size'])
@@ -31,8 +31,7 @@ epochs = int(args['epochs'])
 version = int(args['version'])
 n = int(args['n'])
 identifier = int(args['id'])
-data = int(args['data'])
-
+data = args['data']
 num_classes = 2
 
 if version == 1:
@@ -40,7 +39,7 @@ if version == 1:
 elif version == 2:
     depth = n * 9 + 2
 
-model_type = 'ResNet%dv%d_%d_data%d_flipped' % (depth, version, identifier, data)
+model_type = 'ResNet%dv%d_%d_%s' % (depth, version, identifier, data)
 save_dir = os.path.join(os.getcwd(), 'saved_models')
 os.mkdir('saved_models/' + model_type)
 
@@ -48,32 +47,21 @@ old_stdout = sys.stdout
 log_file = open(save_dir + "/" + model_type + "/log.txt", "w")
 sys.stdout = log_file
 
-if data == 0:
-    x_train = np.load('data/x_train.npy')
-    x_test = np.load('data/x_test.npy')
-    y_train = np.load('data/y_train.npy')
-    y_test = np.load('data/y_test.npy')
-    y_train_old = np.load('data/y_train_old.npy')
-    y_test_old = np.load('data/y_test_old.npy')
-else:
-    x_train = np.load('data_preprocessed/x_train.npy')
-    x_test = np.load('data_preprocessed/x_test.npy')
-    y_train = np.load('data_preprocessed/y_train.npy')
-    y_test = np.load('data_preprocessed/y_test.npy')
-    y_train_old = np.load('data_preprocessed/y_train_old.npy')
-    y_test_old = np.load('data_preprocessed/y_test_old.npy')
+x_train = np.load(data + '/x_train.npy')
+x_test = np.load(data + '/x_test.npy')
+y_train = np.load(data + '/y_train.npy')
+y_test = np.load(data + '/y_test.npy')
+y_train_old = np.load(data + '/y_train_old.npy')
+y_test_old = np.load(data + '/y_test_old.npy')
 
-y_test_old = 1 - y_test_old
-y_train_old = 1 - y_train_old
 input_shape = x_train.shape[1:]
 
-if data == 0:
-    x_train = x_train.astype('float32') / 255
-    x_test = x_test.astype('float32') / 255
+x_train = x_train.astype('float32') / 255
+x_test = x_test.astype('float32') / 255
 
-    x_train_mean = np.mean(x_train, axis=0)
-    x_train -= x_train_mean
-    x_test -= x_train_mean
+x_train_mean = np.mean(x_train, axis=0)
+x_train -= x_train_mean
+x_test -= x_train_mean
 
 print('x_train shape:', x_train.shape)
 print(x_train.shape[0], 'train samples')
@@ -92,7 +80,7 @@ model.summary()
 
 print("Model:", model_type)
 
-model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
+model_name = 'model_%s.{epoch:03d}.h5' % model_type
 if not os.path.isdir(save_dir):
     os.makedirs(save_dir)
 filepath = os.path.join(save_dir, model_name)
@@ -108,18 +96,6 @@ lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
                                cooldown=0,
                                patience=5,
                                min_lr=0.5e-6)
-
-
-class PlottingCallback(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        print(logs)
-        preds = self.model.predict(x_test)
-        plt.clf()
-        plt.hist(preds[:, 0])
-        plt.title("Test Set Distribution, Epoch " + str(epoch) + ", MSE " + str(round(logs['mse'], 2)) + ", VAL MSE " + str(round(logs['val_mse'], 2)))
-        plt.savefig(save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch))       
-        plt.clf()
-plotting_callback = PlottingCallback()
 
 
 class AdditionalValidationSets(Callback):
@@ -177,7 +153,7 @@ class AdditionalValidationSets(Callback):
 validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
 
 
-callbacks = [checkpoint, lr_reducer, lr_scheduler, plotting_callback, validation_sets]
+callbacks = [checkpoint, lr_reducer, lr_scheduler, validation_sets]
 
 print('Using real-time data augmentation.')
 # this will do preprocessing and realtime data augmentation:
@@ -236,6 +212,7 @@ for file in files:
     # Save the epoch
     epoch = int(file[-5:-3])
     epochs.append(epoch)
+    print("Fine tuning epoch", epoch)
     
     # Load the model
     if version == 1:
@@ -248,16 +225,7 @@ for file in files:
                   metrics=['acc', 'mse'])
     model.load_weights(file)
     
-    print("BASELINE p*")
-    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
-    res = model.evaluate(x_test, y_test_old)
-    ax[0].hist(model.predict(x_test)[:, 0])
-    ax[0].set_title("Epoch " + str(epoch) + " Test")
-    ax[1].hist(model.predict(x_train)[:, 0])
-    ax[1].set_title("Epoch " + str(epoch) + " Train")
-    fig.suptitle("Baseline Model Evaluated on p*: " + str(round(res[-1], 2)) + " Test MSE")
-    plt.savefig("saved_models/" + model_type + "/tune_dist_baseline")
-    
+    print("BASELINE p*", model.evaluate(x_test, y_test_old))
     model.trainable = False
     predictions = Dense(8, activation='relu', kernel_initializer='he_normal')(model.layers[-3].output)
     predictions = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(predictions)
@@ -275,21 +243,11 @@ for file in files:
         monitor='val_mean_squared_error', factor=0.1, patience=1, verbose=1,
         mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
 
-    class PlottingCallback(Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            plt.clf()
-            preds = self.model.predict(x_test)
-            plt.hist(preds[:, 0])
-            plt.title("Fine Tuning Epoch: " + str(epoch + 1) + ", Test MSE: " + str(round(model.evaluate(x_test, y_test_old)[-1], 2)))
-            plt.savefig("saved_models/" + model_type + "/tune_dist_" + str(epochs[-1]) + "_" + str(epoch))
-            plt.clf()
-        
-    plotting_callback = PlottingCallback()
     history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
 
     hist = new.fit(x=x_train, y=y_train_old, epochs=8, batch_size=batch_size, 
                   validation_data=(x_test, y_test_old), 
-                  callbacks=[lr_scheduler_inner, history, plotting_callback])
+                  callbacks=[lr_scheduler_inner, history])
     hists.append(history.history)
 
 
