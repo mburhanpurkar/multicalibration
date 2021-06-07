@@ -1,4 +1,3 @@
-import re
 import os
 import sys
 import time
@@ -24,7 +23,7 @@ parser.add_argument('--epochs', default=200)
 parser.add_argument('--version', default=1)
 parser.add_argument('--n', default=3)
 parser.add_argument('--id', default=0)
-parser.add_argument('--data', default=0)
+parser.add_argument('--data', default='data')
 parser.add_argument('--tuning_epoch', default=0)
 args = vars(parser.parse_args())
 
@@ -33,7 +32,7 @@ epochs = int(args['epochs'])
 version = int(args['version'])
 n = int(args['n'])
 identifier = int(args['id'])
-data = int(args['data'])
+data = args['data']
 tuning_epoch = int(args['tuning_epoch'])
 
 num_classes = 2
@@ -43,19 +42,30 @@ if version == 1:
 elif version == 2:
     depth = n * 9 + 2
 
-model_type = 'ResNet%dv%d_%d_data%d_flipped' % (depth, version, identifier, data)
+model_type = 'ResNet%dv%d_%d_%s' % (depth, version, identifier, data)
 save_dir = os.path.join(os.getcwd(), 'saved_models')
 
 old_stdout = sys.stdout
 log_file = open(save_dir + "/" + model_type + "/log.txt", "a")
 sys.stdout = log_file
 
-x_train = np.load('data/x_train.npy')
-x_test = np.load('data/x_test.npy')
-y_train = np.load('data/y_train.npy')
-y_test = np.load('data/y_test.npy')
-y_train_old = np.load('data/y_train_old.npy')
-y_test_old = np.load('data/y_test_old.npy')
+x_train = np.load(data + '/x_train.npy')
+x_test = np.load(data + '/x_test.npy')
+y_train = np.load(data + '/y_train.npy')
+y_test = np.load(data + '/y_test.npy')
+y_train_old = np.load(data + '/y_train_old.npy')
+y_test_old = np.load(data + '/y_test_old.npy')
+
+input_shape = x_train.shape[1:]
+
+x_train = x_train.astype('float32') / 255
+x_test = x_test.astype('float32') / 255
+
+x_train_mean = np.mean(x_train, axis=0)
+x_train -= x_train_mean
+x_test -= x_train_mean
+
+steps_per_epoch =  math.ceil(len(x_train) / batch_size)
 
 datagen = ImageDataGenerator(
     featurewise_center=False,
@@ -71,21 +81,6 @@ datagen = ImageDataGenerator(
 
 datagen.fit(x_train)
 
-
-y_train_old = 1 - y_train_old
-y_test_old = 1 - y_test_old
-
-input_shape = x_train.shape[1:]
-steps_per_epoch =  math.ceil(len(x_train) / batch_size)
-
-if data == 0:
-    x_train = x_train.astype('float32') / 255
-    x_test = x_test.astype('float32') / 255
-
-    x_train_mean = np.mean(x_train, axis=0)
-    x_train -= x_train_mean
-    x_test -= x_train_mean
-
 print('x_train shape:', x_train.shape)
 print(x_train.shape[0], 'train samples')
 print(x_test.shape[0], 'test samples')
@@ -97,14 +92,14 @@ else:
     model = resnet.resnet_v1(input_shape=input_shape, depth=depth, num_classes=num_classes)
 
 model.compile(loss='categorical_crossentropy',
-              optimizer=Adam(lr=resnet.lr_schedule(0)),
+              optimizer=Adam(lr=resnet.lr_schedule(0, 1e-3/3.)),
               metrics=['acc', 'mse'])
 model.summary()
 
-files = glob.glob(save_dir + "/" + model_type + "/" + "cifar10_" + model_type + "_model.*.h5")
+files = glob.glob(save_dir + "/" + model_type + "/" + "model_" + model_type + ".*.h5")
 files = sorted(files)
 checkpoint = files[-1]
-checkpoint_epoch = int(checkpoint[-5:-3])
+checkpoint_epoch = int(checkpoint[-6:-3])
 
 if checkpoint_epoch < epochs:
     print("Latest checkpoint path", checkpoint)
@@ -113,9 +108,10 @@ if checkpoint_epoch < epochs:
 
     print("Model:", model_type)
 
-    model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
+    model_name = 'model_%s.{epoch:03d}.h5' % model_type
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
+    save_dir = os.path.join(save_dir, model_type)
     filepath = os.path.join(save_dir, model_name)
 
     checkpoint = ModelCheckpoint(filepath=filepath,
@@ -128,19 +124,6 @@ if checkpoint_epoch < epochs:
                                    cooldown=0,
                                    patience=5,
                                    min_lr=0.5e-6)
-
-    class PlottingCallback(Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            print(logs)
-            preds = self.model.predict(x_test)
-            plt.clf()
-            plt.hist(preds[:, 0])
-            plt.title("Test Set Distribution, Epoch " + str(epoch) + ", MSE " + str(round(logs['mse'], 2)) + ", VAL MSE " + str(round(logs['val_mse'], 2)))
-            plt.savefig(save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch))       
-            print("Saving dist to " + save_dir + "/" + model_type + "/" + "test_dist_" + str(epoch) + ".png")
-            plt.clf()
-    plotting_callback = PlottingCallback()
-
 
     class AdditionalValidationSets(Callback):
         def __init__(self, validation_sets, verbose=0, batch_size=None):
@@ -198,7 +181,7 @@ if checkpoint_epoch < epochs:
     validation_sets = AdditionalValidationSets([(x_test, y_test_old, 'p*')], verbose=1, batch_size=batch_size)
 
 
-    callbacks = [checkpoint, lr_reducer, lr_scheduler, plotting_callback, validation_sets]
+    callbacks = [checkpoint, lr_reducer, lr_scheduler, validation_sets]
 
     print('Using real-time data augmentation.')
     # this will do preprocessing and realtime data augmentation:
@@ -234,7 +217,7 @@ if checkpoint_epoch < epochs:
 #####################################################################################################################################
 
 
-files = sorted(glob.glob(save_dir + "/" + model_type +  "/cifar10_%s_model.*.h5" % model_type))
+files = sorted(glob.glob(save_dir + "/" + model_type +  "/model_%s.*.h5" % model_type))
 epochs = []
 hists = []
 
@@ -244,9 +227,10 @@ resume = False
 if tuning_epoch != 0:
     resume = True
 
-for file in files[tuning_epoch:]:
+# Skip every other checkpoint for now
+for file in files[tuning_epoch::2]:
     # Save the epoch
-    epoch = int(file[-5:-3])
+    epoch = int(file[-6:-3])
     epochs.append(epoch)
     
     # Load the model
@@ -256,19 +240,11 @@ for file in files[tuning_epoch:]:
         model = resnet.resnet_v2(input_shape=input_shape, depth=depth)
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=Adam(lr=resnet.lr_schedule(0)),
+                  optimizer=Adam(lr=resnet.lr_schedule(0, 1e-3/3.)),
                   metrics=['acc', 'mse'])
     model.load_weights(file)
     
-    print("BASELINE p*")
-    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
-    res = model.evaluate(x_test, y_test_old)
-    ax[0].hist(model.predict(x_test)[:, 0])
-    ax[0].set_title("Epoch " + str(epoch) + " Test")
-    ax[1].hist(model.predict(x_train)[:, 0])
-    ax[1].set_title("Epoch " + str(epoch) + " Train")
-    fig.suptitle("Baseline Model Evaluated on p*: " + str(round(res[-1], 2)) + " Test MSE")
-    plt.savefig(save_dir + "/" + model_type + "/tune_dist_baseline_" + str(epochs[-1]))
+    print("BASELINE p*", model.predict(x_test))
     
     model.trainable = False
     predictions = Dense(8, activation='relu', kernel_initializer='he_normal')(model.layers[-3].output)
@@ -280,23 +256,12 @@ for file in files[tuning_epoch:]:
                   metrics=[tf.keras.metrics.MeanSquaredError()])
     
     def schedule_inner(epoch, lr):
-        return lr * 0.96
+        return lr * 0.87
     lr_scheduler_inner = LearningRateScheduler(schedule_inner, verbose=1)
 
     lr_reduce = ReduceLROnPlateau(
         monitor='val_mean_squared_error', factor=0.1, patience=1, verbose=1,
         mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
-
-    class PlottingCallback(Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            plt.clf()
-            preds = self.model.predict(x_test)
-            plt.hist(preds[:, 0])
-            plt.title("Fine Tuning Epoch: " + str(epoch + 1) + ", Test MSE: " + str(round(self.model.evaluate(x_test, y_test_old)[-1], 2)))
-            plt.savefig(save_dir + "/" + model_type + "/tune_dist_" + str(epochs[-1]) + "_" + str(epoch))
-            plt.clf()
-        
-    plotting_callback = PlottingCallback()
 
     class AdditionalValidationSets(Callback):
         def __init__(self, validation_sets, verbose=0, batch_size=None):
@@ -351,7 +316,7 @@ for file in files[tuning_epoch:]:
                    epochs=8, 
                    batch_size=batch_size, 
                   validation_data=(x_test, y_test_old), 
-                  callbacks=[lr_scheduler_inner, history, plotting_callback])
+                  callbacks=[lr_scheduler_inner, history])
     hists.append(history.history)
 
     if resume:
