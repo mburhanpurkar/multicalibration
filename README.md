@@ -1,5 +1,9 @@
 # multicalibration
 
+
+### Torch installation instructions
+It boggles the mind that there's no documentation for Mac M1 installation, but here it is... Follow the instructions [here](https://github.com/pytorch/pytorch#from-source) EXCEPT conda may complain that `mkl` and `mkl-include` cannot be found, but that's ok. Follow the rest of the instructions EXCEPT the last one. Instead, install with `MACOSX_DEPLOYMENT_TARGET=11.0 USE_OPENMP=NO CC=clang CXX=clang++ python setup.py install`
+
 ### `code/resnet`
 - `generate_data.py` and `generate_data.sh`: data generation script and SLURM file for all CIFAR10 tests we have run so far
 - `parse_file.py`: a script for parsing log files in case Callback logging fails
