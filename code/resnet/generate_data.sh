@@ -4,7 +4,7 @@
 #SBATCH -n 1                # Number of cores
 #SBATCH -t 0-00:05           # Runtime in D-HH:MM
 #SBATCH -p shared           # Partition to submit to
-#SBATCH --mem=1G
+#SBATCH --mem=5G
 #SBATCH --account=dwork_lab
 #SBATCH --output=data_gen
 #SBATCH --mail-user=maya.burhanpurkar@gmail.com

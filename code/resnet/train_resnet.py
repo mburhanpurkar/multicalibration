@@ -74,7 +74,7 @@ else:
     model = resnet.resnet_v1(input_shape=input_shape, depth=depth, num_classes=num_classes)
 
 model.compile(loss='categorical_crossentropy',
-              optimizer=Adam(lr=resnet.lr_schedule(0)),
+              optimizer=Adam(lr=1e-3/3.),
               metrics=['acc', 'mse'])
 model.summary()
 
@@ -148,7 +148,7 @@ class AdditionalValidationSets(Callback):
                 if self.verbose:
                     print(valuename + ": " + str(result))
         if self.save:
-            with open(save_dir + "/" + model_type  + "/history.pkl', 'wb') as f:
+            with open(save_dir + "/" + model_type  + '/history.pkl', 'wb') as f:
                 pickle.dump(self.history, f, pickle.HIGHEST_PROTOCOL)
 
 
@@ -223,7 +223,7 @@ for file in files:
         model = resnet.resnet_v2(input_shape=input_shape, depth=depth)
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=Adam(lr=resnet.lr_schedule(0)),
+                  optimizer=Adam(lr=1e-3/3.),
                   metrics=['acc', 'mse'])
     model.load_weights(file)
     
@@ -238,7 +238,7 @@ for file in files:
                   metrics=[tf.keras.metrics.MeanSquaredError()])
     
     def schedule_inner(epoch, lr):
-        return lr * 0.96
+        return lr * 0.94
     lr_scheduler_inner = LearningRateScheduler(schedule_inner, verbose=1)
 
     lr_reduce = ReduceLROnPlateau(

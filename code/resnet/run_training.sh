@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH -J flipped
+#SBATCH -J even_uniform_tuning
 #SBATCH -n 2                # Number of cores
-#SBATCH -t 0-20:00           # Runtime in D-HH:MM
+#SBATCH -t 1-00:00           # Runtime in D-HH:MM
 #SBATCH -p shared           # Partition to submit to
-#SBATCH --mem=10G
+#SBATCH --mem=15G
 #SBATCH --account=dwork_lab
-#SBATCH --output=flipped
+#SBATCH --output=test_run
 #SBATCH --mail-user=maya.burhanpurkar@gmail.com
 #SBATCH --mail-type=ALL
 
@@ -36,6 +36,9 @@ source activate tf_mult
 # python resume_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=76 --tuning_epoch=30
 # python resume_resnet.py --version=1 --n=3 --id=${SLURM_ARRAY_TASK_ID} --data=0 --epochs=76 --tuning_epoch=30
 # python sanity_check_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=75
-python resume_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=75 --tuning_epoch=0
+# python resume_resnet.py --version=1 --n=3 --id=0 --data=0 --epochs=75 --tuning_epoch=0
+
+# python train_resnet.py --version=1 --n=3 --id=0 --data=data_hybrids_fixed_even --epochs=200
+python resume_resnet.py --version=1 --n=3 --id=0 --data=data_hybrids_uniform_even --epochs=100
 
 conda deactivate

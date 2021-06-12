@@ -311,6 +311,7 @@ for file in files[tuning_epoch::2]:
                     self.history.setdefault(valuename, []).append(result)
                     if self.verbose:
                         print(valuename + ": " + str(result))
+    
     history = AdditionalValidationSets([(x_test, y_test, 'y')], verbose=1, batch_size=batch_size)
     hist = new.fit(datagen.flow(x_train, y_train_old, batch_size=batch_size), 
                    epochs=8, 

@@ -13,7 +13,7 @@ from tensorflow.keras.utils import to_categorical
 
 
 
-def lr_schedule(epoch):
+def lr_schedule(epoch, lr):
     """Learning Rate Schedule
 
     Learning rate is scheduled to be reduced after 80, 120, 160, 180 epochs.
@@ -25,9 +25,11 @@ def lr_schedule(epoch):
     # Returns
         lr (float32): learning rate
     """
-    lr = 1e-3 / 5
+    if epoch > 80:
+        return lr * 0.96
+    lr = 1e-3 / 3
     if epoch > 70:
-        lr *= 1e-2
+        lr /= 16
     elif epoch > 60:
         lr /= 10
     elif epoch > 50:
