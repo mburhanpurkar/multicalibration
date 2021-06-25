@@ -17,7 +17,7 @@ def load_data(outputs, labels, probs):
 def split_sets(D1_hhat, D1_labels, C, B, r):
     """Split D1 into sets by Linjun's method and get the corresponding intervals"""
     quantiles_B = np.linspace(0, 1, B + 1)
-    sets = [D1_hhat, D1_labels]
+    sets = [(D1_hhat, D1_labels)]
     set_ranges = np.empty((1, r, 2))
     set_ranges[0, :, 0] = -C
     set_ranges[0, :, 1] = C
@@ -25,15 +25,19 @@ def split_sets(D1_hhat, D1_labels, C, B, r):
     for j in range(r):
         new_sets = []
         new_ranges = np.tile(set_ranges, (B, 1, 1))
+        print("r =", j)
+        #print(sets)
         for i in range(len(sets)):
             features = sets[i][0][:, j]
             quantiles = [-C] + list(np.quantile(features, quantiles_B[1:-1])) + [C]
             sets_tmp = [[] for i in range(B)]
             sets_tmp_y = [[] for i in range(B)]
-
+            print(quantiles)
+            print(quantiles_B[1:-1])
+            print(features)
             for sample_id in range(len(sets[i][0])):
                 for k in range(B):
-                    if features[sample_id] >= quantiles[k] and features[sample_id] <= quantiles[k + 1]:
+                    if features[sample_id] > quantiles[k] and features[sample_id] <= quantiles[k + 1]:
                         sets_tmp[k].append(sets[i][0][sample_id])
                         sets_tmp_y[k].append(sets[i][1][sample_id])
                         break
@@ -83,14 +87,14 @@ def get_sets(features, r, set_ranges):
     return ret
 
 
-def compute_D2(D2_hhats, r, set_ranges):
+def compute_D2(D2_hhats, D2_labels, r, set_ranges):
     D2_counts = np.zeros(B**r)
     D2_weights = np.zeros(B**r)
     s = get_sets(D2_hhats, r, set_ranges)
 
     for i in range(len(D2_hhats)):
         D2_counts[s[i]] += 1
-        D2_weights[s[i]] += y[i]
+        D2_weights[s[i]] += D2_labels[i]
     return D2_counts, D2_weights
 
 
@@ -102,19 +106,27 @@ def fhat(feature, r, D2_weights, D2_counts, set_ranges):
     return weights / counts
 
 
-data_dir = "/n/home10/mburhanpurkar/multicalibration/code/resnet/data_hybrids_uniform_even"
+data_dir = "/n/home10/mburhanpurkar/multicalibration/code/tensorflow/data_hybrids_uniform_even"
 outputs = np.load(data_dir + '/hhat_train.npy')
 labels = np.load(data_dir + '/y_train.npy')[:, 0]
 probs = np.load(data_dir + '/y_train_old.npy')[:, 0]
+
+out = np.empty((len(outputs), 2))
+out[:, 0] = outputs[:, 0]
+out[:, 1] = outputs[:, 6]
+
+outputs = out
+
 C = 100
 B = 5
 r = len(outputs[0])
+print("r =", r, "C =", C, "B =", B)
 r, D1, D2 = load_data(outputs, labels, probs)
 outputs_test = np.load(data_dir + '/hhat_test.npy')
 labels_test = np.load(data_dir + '/y_test.npy')[:, 0]
 probs_test = np.load(data_dir + '/y_test_old.npy')[:, 0]
 sets, set_counts, set_ranges = split_sets(D1[0], D1[1], C, B, r)
-D2_counts, D2_weights = compute_D2(D2[0], r, set_ranges)
+D2_counts, D2_weights = compute_D2(D2[0], D2[1], r, set_ranges)
 
 # Check that none are empty
 for i in range(len(D2_counts)):
